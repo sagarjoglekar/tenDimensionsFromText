@@ -28,6 +28,8 @@ class TenDimensionsLSTM:
 
         # text tokenizer
         self.tokenize = TweetTokenizer().tokenize
+        # Flag to be set to run on GPU
+        self.is_cuda = False
 
         # the 10 dimensions
         self.dimensions = ['knowledge', 'power', 'respect', 'trust', 'social_support',
@@ -48,14 +50,16 @@ class TenDimensionsLSTM:
         self.dimension2model = {}
         self.dimension2embedding = {}
         for dim in self.dimensions:
-            is_cuda = False  # True
             model = LSTMClassifier(embedding_dim=300, hidden_dim=300)
-            if is_cuda:
+            if self.is_cuda:
                 model.cuda()
             model.eval()
             for modelname in os.listdir(self.models_dir):
                 if ('-best.lstm' in modelname) & (dim in modelname):
-                    best_state = torch.load(join(self.models_dir, modelname), map_location='cpu')
+                    if self.is_cuda:
+                        best_state = torch.load(join(self.models_dir, modelname), map_location={'cuda:0': 'cpu'})
+                    else:
+                        best_state = torch.load(join(self.models_dir, modelname), map_location='cpu')
                     model.load_state_dict(best_state)
                     if 'glove' in modelname:
                         em = em_glove
@@ -86,8 +90,8 @@ class TenDimensionsLSTM:
                 em = self.dimension2embedding[dimension]
                 input_ = em.obtain_vectors_from_sentence(self.tokenize(text), True)
                 input_ = torch.tensor(input_).float().unsqueeze(0)
-                # if is_cuda:
-                #    input_ = input_.cuda()
+                if self.is_cuda:
+                   input_ = input_.cuda()
                 output = classifier(input_)
                 score = torch.sigmoid(output).item()
                 text_results[self.dimensions2name[dimension]] = score
