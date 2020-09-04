@@ -1,27 +1,29 @@
-from compute_lstm import TenDimensionsLSTM
+from tendims import TenDimensionsClassifier
 from flask import Flask, request, redirect , jsonify ,send_from_directory
 from flask_cors import CORS
 import json
 
 
-# Load model
-models_dir = 'lstm_trained_models'
+# Load models
+models_dir = 'models/lstm_trained_models'
 embeddings_dir = 'embeddings'  # change urls to embeddings dir
-model = TenDimensionsLSTM(models_dir=models_dir, embeddings_dir=embeddings_dir)
-print('Model loaded')
+success_model_file = 'models/meeting_success/xgboost_10dims_success_prediction_model.dat'
+model = TenDimensionsClassifier(models_dir=models_dir, embeddings_dir=embeddings_dir)
+success_predictor = SuccessPredictor(success_model_file)
+print('Models loaded')
 
 app = Flask(__name__)
 
-
-
 @app.route("/tenDimensions", methods=['POST'])
 def tenDimensions():
-        sentences = [request.form['text']]
+        text = [request.form['text']]
         print(f"received Text : {sentences}")
         try:
-                # you can give in input both texts or a list of texts
-                scores = model.compute_score(sentences, dimensions=None)
+                # you can give in input one string of text
                 # dimensions = None extracts all dimensions
+                tendim_scores = model.compute_score(text, dimensions=None)
+                success_probability = success_predictor.predict_success(tendim_scores)
+                tendim_scores['success'] = success_probability
                 return jsonify(scores)
         except Exception as e:
                 print (e)
